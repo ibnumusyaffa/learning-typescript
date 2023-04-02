@@ -35,6 +35,41 @@
     - [Narrowing Object Types](#narrowing-object-types)
     - [Discriminated Unions](#discriminated-unions)
   - [Intersection Types](#intersection-types)
+- [Function](#function)
+  - [Function paramater](#function-paramater)
+    - [Required Paramater](#required-paramater)
+    - [Optional Paramater](#optional-paramater)
+    - [Default Parameter](#default-parameter)
+    - [Rest Parameters](#rest-parameters)
+  - [Return Types](#return-types)
+    - [Implicit Return Types](#implicit-return-types)
+    - [Explicit Return Types](#explicit-return-types)
+  - [Function Types](#function-types)
+    - [Function Type Parentheses](#function-type-parentheses)
+    - [Function Type Aliases](#function-type-aliases)
+  - [More Return Types](#more-return-types)
+    - [Void Return](#void-return)
+    - [Never Returns](#never-returns)
+    - [Function Overloading](#function-overloading)
+- [Array](#array)
+  - [Array Types](#array-types)
+    - [Array and Function Types](#array-and-function-types)
+    - [Union Type Array](#union-type-array)
+    - [Evolving Any Array](#evolving-any-array)
+    - [Multidimensional Array](#multidimensional-array)
+  - [Spreads And Rests](#spreads-and-rests)
+    - [Spreads](#spreads)
+    - [Spreading Rest Parameters](#spreading-rest-parameters)
+  - [Tuples](#tuples)
+- [Interface](#interface)
+  - [Types of Properties](#types-of-properties)
+    - [Optional Properties](#optional-properties-1)
+    - [Read-Only Properties](#read-only-properties)
+    - [Functions and Methods](#functions-and-methods)
+    - [Call Signatures](#call-signatures)
+    - [Index Signatures](#index-signatures)
+    - [Nested Interface](#nested-interface)
+  - [Interface Extensions](#interface-extensions)
 
 # The Type System
 
@@ -612,3 +647,482 @@ type WrittenArt = Artwork & Writing;
 //   pages: number;
 // }
 ```
+# Function
+
+```ts
+function sing(song: string) {
+  console.log(`Singing: ${song}!`);
+}
+```
+## Function paramater
+### Required Paramater
+```ts
+function singTwo(first: string, second: string) {
+  console.log(`${first} / ${second}`);
+}
+
+// Logs: "Ball and Chain / undefined"
+singTwo("Ball and Chain");
+//      ~~~~~~~~~~~~~~~~
+// Error: Expected 2 arguments, but got 1.
+
+// Logs: "I Will Survive / Higher Love"
+singTwo("I Will Survive", "Higher Love"); // Ok
+
+// Logs: "Go Your Own Way / The Chain"
+singTwo("Go Your Own Way", "The Chain", "Dreams");
+//                                      ~~~~~~~~
+// Error: Expected 2 arguments, but got 3.
+```
+### Optional Paramater
+```ts
+function announceSong(song: string, singer?: string) {
+  console.log(`Song: ${song}`);
+
+  if (singer) {
+    console.log(`Singer: ${singer}`);
+  }
+}
+
+announceSong("Greensleeves"); // Ok
+announceSong("Greensleeves", undefined); // Ok
+announceSong("Chandelier", "Sia"); // Ok
+```
+```ts
+function announceSongBy(song: string, singer: string | undefined) { /* ... */ }
+
+announceSongBy("Greensleeves");
+// Error: Expected 2 arguments, but got 1.
+
+announceSongBy("Greensleeves", undefined); // Ok
+announceSongBy("Chandelier", "Sia"); // Ok
+```
+### Default Parameter
+```ts
+function rateSong(song: string, rating = 0) {
+  console.log(`${song} gets ${rating}/5 stars!`);
+}
+
+rateSong("Photograph"); // Ok
+rateSong("Set Fire to the Rain", 5); // Ok
+rateSong("Set Fire to the Rain", undefined); // Ok
+
+rateSong("At Last!", "100");
+```
+### Rest Parameters
+```ts
+function singAllTheSongs(singer: string, ...songs: string[]) {
+  for (const song of songs) {
+    console.log(`${song}, by ${singer}`);
+  }
+}
+
+singAllTheSongs("Alicia Keys"); // Ok
+singAllTheSongs("Lady Gaga", "Bad Romance", "Just Dance", "Poker Face"); // Ok
+
+singAllTheSongs("Ella Fitzgerald", 2000);
+// Error: Argument of type 'number' is not
+// assignable to parameter of type 'string'.
+```
+## Return Types
+### Implicit Return Types
+```ts
+// Type: (songs: string[]) => number
+function singSongs(songs: string[]) {
+  for (const song of songs) {
+    console.log(`${song}`);
+  }
+
+  return songs.length;
+}
+```
+### Explicit Return Types
+```ts
+// Type: (songs: string[]) => number
+
+function singSongs(songs: string[]): number {
+  return songs.length
+}
+```
+Arrow function
+```ts
+const addNumbers = (a: number, b: number): number => {
+  return a + b;
+};
+```
+
+## Function Types
+```ts
+let nothingInGivesString: () => string;
+let inputAndOutput: (songs: string[], count?: number) => number;
+function runOnSongs(getSongAt: (index: number) => string) {}
+```
+### Function Type Parentheses
+```ts
+// Type is a function that returns a union: string | undefined
+let returnsStringOrUndefined: () => string | undefined;
+
+// Type is either undefined or a function that returns a string
+let maybeReturnsString: (() => string) | undefined;
+```
+### Function Type Aliases
+```ts
+type StringToNumber = (input: string) => number;
+
+let stringToNumber: StringToNumber;
+
+stringToNumber = (input) => input.length; // Ok
+
+stringToNumber = (input) => input.toUpperCase();
+//                          ~~~~~~~~~~~~~~~~~~~
+// Error: Type 'string' is not assignable to type 'number'.
+```
+## More Return Types
+### Void Return
+```ts
+function logSong(song: string | undefined): void {
+  if (!song) {
+    return; // Ok
+  }
+
+  console.log(`${song}`);
+
+  return true;
+  // Error: Type 'boolean' is not assignable to type 'void'.
+}
+```
+```ts
+function returnsVoid() {
+  return;
+}
+
+let lazyValue: string | undefined;
+
+lazyValue = returnsVoid();
+// Error: Type 'void' is not assignable to type 'string | undefined'.
+```
+### Never Returns
+
+Never-returning functions are those that always throw an error or run an infinite loop
+```ts
+function fail(message: string): never {
+    throw new Error(`Invariant failure: ${message}.`);
+}
+
+function workWithUnsafeParam(param: unknown) {
+    if (typeof param !== "string") {
+        fail(`param should be a string, not ${typeof param}`);
+    }
+
+    // Here, param is known to be type string
+    param.toUpperCase(); // Ok
+}
+```
+### Function Overloading
+```ts
+function createElement(tagName: 'input'): HTMLInputElement;
+function createElement(tagName: 'img'): HTMLImageElement;
+function createElement(tagName: string): HTMLElement {
+  return document.createElement(tagName);
+}
+```
+# Array
+In this example, TypeScript knows the warriors array initially contains string typed values, so while adding more string typed values is allowed, adding any other type of data is not:
+```ts
+const warriors = ["Artemisia", "Boudica"];
+
+// Ok: "Zenobia" is a string
+warriors.push("Zenobia");
+
+warriors.push(true);
+//            ~~~~
+// Argument of type 'boolean' is not assignable to parameter of type 'string'.
+```
+## Array Types
+```ts
+let arrayOfNumbers: number[];
+
+arrayOfNumbers = [4, 8, 15, 16, 23, 42];
+```
+### Array and Function Types
+```ts
+// Type is a function that returns an array of strings
+let createStrings: () => string[];
+
+// Type is an array of functions that each return a string
+let stringCreators: (() => string)[];
+```
+### Union Type Array
+```ts
+// Type is either a string or an array of numbers
+let stringOrArrayOfNumbers: string | number[];
+
+// Type is an array of elements that are each either a number or a string
+let arrayOfStringOrNumbers: (string | number)[];
+```
+### Evolving Any Array
+```ts
+// Type: any[]
+let values = [];
+
+// Type: string[]
+values.push('');
+
+// Type: (number | string)[]
+values[0] = 0;
+```
+### Multidimensional Array
+```ts
+let arrayOfArraysOfNumbers: number[][];
+
+arrayOfArraysOfNumbers = [
+  [1, 2, 3],
+  [2, 4, 6],
+  [3, 6, 9],
+];
+```
+
+## Spreads And Rests
+### Spreads
+```ts
+// Type: string[]
+const soldiers = ["Harriet Tubman", "Joan of Arc", "Khutulun"];
+
+// Type: number[]
+const soldierAges = [90, 19, 45];
+
+// Type: (string | number)[]
+const conjoined = [...soldiers, ...soldierAges];
+```
+### Spreading Rest Parameters
+```ts
+function logWarriors(greeting: string, ...names: string[]) {
+  for (const name of names) {
+    console.log(`${greeting}, ${name}!`);
+  }
+}
+
+const warriors = ["Cathay Williams", "Lozen", "Nzinga"];
+
+logWarriors("Hello", ...warriors);
+
+const birthYears = [1844, 1840, 1583];
+
+logWarriors("Born in", ...birthYears);
+//                     ~~~~~~~~~~~~~
+// Error: Argument of type 'number' is not
+// assignable to parameter of type 'string'.
+```
+## Tuples
+
+Although JavaScript arrays may be any size in theory, it is sometimes useful to use an array of a fixed size—also known as a tuple.
+Tuple arrays have a specific known type at each index that may be more specific than a union type of all possible members of the array.
+The syntax to declare a tuple type looks like an array literal, but with types in place of element values.
+```ts
+let yearAndWarrior: [number, string];
+
+yearAndWarrior = [530, "Tomyris"]; // Ok
+
+yearAndWarrior = [false, "Tomyris"];
+//                ~~~~~
+// Error: Type 'boolean' is not assignable to type 'number'.
+
+yearAndWarrior = [530];
+// Error: Type '[number]' is not assignable to type '[number, string]'.
+//   Source has 1 element(s) but target requires 2.
+```
+# Interface
+```ts
+interface Poet {
+  born: number;
+  name: string;
+}
+
+let valueLater: Poet;
+// Ok
+valueLater = {
+  born: 1935,
+  name: 'Sara Teasdale',
+};
+
+
+valueLater = "Emily Dickinson";
+// Error: Type 'string' is not assignable to 'Poet'.
+
+valueLater = {
+  born: true,
+  // Error: Type 'boolean' is not assignable to type 'number'.
+  name: 'Sappho'
+};
+```
+## Types of Properties
+### Optional Properties
+```ts
+interface Book {
+  author?: string;
+  pages: number;
+};
+```
+### Read-Only Properties
+```ts
+interface Page {
+    readonly text: string;
+}
+
+function read(page: Page) {
+    // Ok: reading the text property doesn't attempt to modify it
+    console.log(page.text);
+
+    page.text += "!";
+    //   ~~~~
+    // Error: Cannot assign to 'text'
+    // because it is a read-only property.
+}
+```
+### Functions and Methods
+```ts
+interface HasBothFunctionTypes {
+  property: () => string;
+  method(): string;
+}
+
+const hasBoth: HasBothFunctionTypes = {
+  property: () => "",
+  method() {
+    return "";
+  }
+};
+
+hasBoth.property(); // Ok
+hasBoth.method(); // Ok
+
+
+interface OptionalReadonlyFunctions {
+  optionalProperty?: () => string;
+  optionalMethod?(): string;
+}
+```
+### Call Signatures
+```ts
+type FunctionAlias = (input: string) => number;
+
+interface CallSignature {
+  (input: string): number;
+}
+
+// Type: (input: string) => number
+const typedFunctionAlias: FunctionAlias = (input) => input.length; // Ok
+
+// Type: (input: string) => number
+const typedCallSignature: CallSignature = (input) => input.length; // Ok
+```
+```ts
+interface FunctionWithCount {
+  count: number;
+  (): void;
+}
+
+let hasCallCount: FunctionWithCount;
+
+function keepsTrackOfCalls() {
+  keepsTrackOfCalls.count += 1;
+  console.log(`I've been called ${keepsTrackOfCalls.count} times!`);
+}
+
+keepsTrackOfCalls.count = 0;
+
+hasCallCount = keepsTrackOfCalls; // Ok
+
+function doesNotHaveCount() {
+  console.log("No idea!");
+}
+
+hasCallCount = doesNotHaveCount;
+// Error: Property 'count' is missing in type
+// '() => void' but required in type 'FunctionWithCalls'
+```
+### Index Signatures
+```ts
+interface WordCounts {
+  [i: string]: number;
+}
+
+const counts: WordCounts = {};
+
+counts.apple = 0; // Ok
+counts.banana = 1; // Ok
+
+counts.cherry = false;
+// Error: Type 'boolean' is not assignable to type 'number'.
+```
+```ts
+interface HistoricalNovels {
+  Oroonoko: number;
+  [i: string]: number;
+}
+
+// Ok
+const novels: HistoricalNovels = {
+  Outlander: 1991,
+  Oroonoko: 1688,
+};
+
+const missingOroonoko: HistoricalNovels = {
+  Outlander: 1991,
+};
+// Error: Property 'Oroonoko' is missing in type
+// '{ Outlander: number; }' but required in type 'HistoricalNovels'.
+```
+```ts
+interface ChapterStarts {
+  preface: 0;
+  [i: string]: number;
+}
+
+const correctPreface: ChapterStarts = {
+  preface: 0,
+  night: 1,
+  shopping: 5
+};
+
+const wrongPreface: ChapterStarts = {
+  preface: 1,
+  // Error: Type '1' is not assignable to type '0'.
+};
+```
+```ts
+// Ok
+interface MoreNarrowNumbers {
+  [i: number]: string;
+  [i: string]: string | undefined;
+}
+
+// Ok
+const mixesNumbersAndStrings: MoreNarrowNumbers = {
+  0: '',
+  key1: '',
+  key2: undefined,
+}
+
+interface MoreNarrowStrings {
+  [i: number]: string | undefined;
+  // Error: 'number' index type 'string | undefined'
+  // is not assignable to 'string' index type 'string'.
+  [i: string]: string;
+}
+```
+### Nested Interface
+```ts
+interface Novel {
+    author: {
+        name: string;
+    };
+    setting: Setting;
+}
+
+interface Setting {
+    place: string;
+    year: number;
+}
+```
+## Interface Extensions

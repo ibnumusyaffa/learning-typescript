@@ -70,6 +70,23 @@
     - [Index Signatures](#index-signatures)
     - [Nested Interface](#nested-interface)
   - [Interface Extensions](#interface-extensions)
+    - [Overridden Properties](#overridden-properties)
+    - [Extending Multiple Interface](#extending-multiple-interface)
+    - [Interface Merging](#interface-merging)
+    - [Member Naming Conflicts](#member-naming-conflicts)
+- [Classes](#classes)
+- [Type Modifiers](#type-modifiers)
+  - [Top Types](#top-types)
+  - [Type Predicates](#type-predicates)
+  - [Type Operators](#type-operators)
+    - [keyof](#keyof)
+    - [typeof](#typeof)
+    - [keyof typeof](#keyof-typeof)
+  - [Type Assertions](#type-assertions)
+    - [Non-Null Assertions](#non-null-assertions)
+  - [Const Assertions](#const-assertions)
+    - [Literal to Primitive](#literal-to-primitive)
+    - [Read-Only Objects](#read-only-objects)
 
 # The Type System
 
@@ -1126,3 +1143,378 @@ interface Setting {
 }
 ```
 ## Interface Extensions
+```ts
+interface Writing {
+    title: string;
+}
+
+interface Novella extends Writing {
+    pages: number;
+}
+
+// Ok
+let myNovella: Novella = {
+    pages: 195,
+    title: "Ethan Frome",
+};
+
+let missingPages: Novella = {
+ // ~~~~~~~~~~~~
+ // Error: Property 'pages' is missing in type
+ // '{ title: string; }' but required in type 'Novella'.
+    title: "The Awakening",
+}
+
+let extraProperty: Novella = {
+ // ~~~~~~~~~~~~~
+ // Error: Type '{ genre: string; name: string; strategy: string; }'
+ // is not assignable to type 'Novella'.
+ //   Object literal may only specify known properties,
+ //   and 'strategy' does not exist in type 'Novella'.
+    pages: 300,
+    strategy: "baseline",
+    style: "Naturalism"
+};
+```
+### Overridden Properties
+```ts
+interface WithNullableName {
+    name: string | null;
+}
+
+interface WithNonNullableName extends WithNullableName {
+    name: string;
+}
+
+interface WithNumericName extends WithNullableName {
+    name: number | string;
+}
+// Error: Interface 'WithNumericName' incorrectly
+// extends interface 'WithNullableName'.
+//   Types of property 'name' are incompatible.
+//     Type 'string | number' is not assignable to type 'string | null'.
+//       Type 'number' is not assignable to type 'string'.
+```
+### Extending Multiple Interface
+```ts
+interface GivesNumber {
+  giveNumber(): number;
+}
+
+interface GivesString {
+  giveString(): string;
+}
+
+interface GivesBothAndEither extends GivesNumber, GivesString {
+  giveEither(): number | string;
+}
+
+function useGivesBoth(instance: GivesBothAndEither) {
+  instance.giveEither(); // Type: number | string
+  instance.giveNumber(); // Type: number
+  instance.giveString(); // Type: string
+}
+```
+### Interface Merging
+```ts
+interface Merged {
+  fromFirst: string;
+}
+
+interface Merged {
+  fromSecond: number;
+}
+
+// Equivalent to:
+// interface Merged {
+//   fromFirst: string;
+//   fromSecond: number;
+// }
+```
+### Member Naming Conflicts
+```ts
+interface MergedProperties {
+  same: (input: boolean) => string;
+  different: (input: string) => string;
+}
+
+interface MergedProperties {
+  same: (input: boolean) => string; // Ok
+
+  different: (input: number) => string;
+  // Error: Subsequent property declarations must have the same type.
+  // Property 'different' must be of type '(input: string) => string',
+  // but here has type '(input: number) => string'.
+}
+```
+# Classes
+Soon
+# Type Modifiers
+## Top Types
+```ts
+function greetComedian(name: any) {
+    // No type error
+    // Possibly Runtime error: name.toUpperCase is not a function
+    console.log(`Announcing ${name.toUpperCase()}!`);
+}
+
+function greetComedian(name: unknown) {
+    console.log(`Announcing ${name.toUpperCase()}!`);
+    //                        ~~~~
+    // Error: Object is of type 'unknown'.
+}
+
+function myFunction(name: unknown) {
+    if (typeof value === "string") {
+        console.log(`Hello ${name.toUpperCase()}!`); // Ok
+    } 
+    console.log(name.toUpperCase())
+}
+```
+## Type Predicates
+```ts
+
+
+function isNumberOrString(value: unknown): value is number | string {
+    return ['number', 'string'].includes(typeof value);
+}
+
+function logValueIfExists(value: number | string | null | undefined) {
+    if (isNumberOrString(value)) {
+        // Type of value: number | string
+        value.toString(); // Ok
+    } else {
+        console.log("value does not exist:", value);
+    }
+}
+```
+```ts
+interface Comedian {
+    funny: boolean;
+}
+
+interface StandupComedian extends Comedian {
+    routine: string;
+}
+
+function isStandupComedian(value: Comedian): value is StandupComedian {
+    return 'routine' in value;
+}
+
+
+function workWithComedian(value: Comedian) {
+    if (isStandupComedian(value)) {
+        // Type of value: StandupComedian
+        console.log(value.routine); // Ok
+    }
+
+    // Type of value: Comedian
+    console.log(value.routine);
+    //                ~~~~~~~
+    // Error: Property 'routine' does not exist on type 'Comedian'.
+}
+```
+## Type Operators
+### keyof
+keyof only work on type not value
+```ts
+interface Ratings {
+    audience: number;
+    critics: number;
+}
+
+function getCountKeyof(ratings: Ratings, key: keyof Ratings): number {
+    return ratings[key]; // Ok
+}
+
+const ratings: Ratings = { audience: 66, critic: 84 };
+
+getCountKeyof(ratings, 'audience'); // Ok
+
+getCountKeyof(ratings, 'not valid');
+//                     ~~~~~~~~~~~
+// Error: Argument of type '"not valid"' is not
+// assignable to parameter of type 'keyof Ratings'
+
+```
+### typeof
+typeof work on value
+```ts
+const original = {
+    medium: "movie",
+    title: "Mean Girls",
+};
+
+let adaptation: typeof original;
+
+if (Math.random() > 0.5) {
+    adaptation = { ...original, medium: "play" }; // Ok
+} else {
+    adaptation = { ...original, medium: 2 };
+    //                          ~~~~~~
+    // Error: Type 'number' is not assignable to type 'string'.
+}
+```
+### keyof typeof
+```ts
+const ratings = {
+    imdb: 8.4,
+    metacritic: 82,
+};
+
+function logRating(key: keyof typeof ratings) {
+    console.log(ratings[key]);
+}
+
+logRating("imdb"); // Ok
+
+logRating("invalid");
+//        ~~~~~~~~~
+// Error: Argument of type '"missing"' is not assignable
+// to parameter of type '"imdb" | "metacritic"'.
+```
+## Type Assertions
+```ts
+const rawData = `["grace", "frankie"]`;
+
+// Type: any
+JSON.parse(rawData);
+
+// Type: string[]
+JSON.parse(rawData) as string[];
+
+// Type: [string, string]
+JSON.parse(rawData) as [string, string];
+
+// Type: ["grace", "frankie"]
+JSON.parse(rawData) as ["grace", "frankie"]
+```
+
+### Non-Null Assertions
+
+Instead of writing out as and the full type of whatever a value is excluding null and undefined, you can use a ! to signify the same thing.
+In other words, the ! non-null assertion asserts that the type is not null or undefined.
+
+```ts
+// Inferred type: Date | undefined
+let maybeDate = Math.random() > 0.5
+    ? undefined
+    : new Date();
+
+// Asserted type: Date
+maybeDate as Date;
+
+// Asserted type: Date
+maybeDate!;
+```
+```ts
+const seasonCounts = new Map([
+    ["I Love Lucy", 6],
+    ["The Golden Girls", 7],
+]);
+
+// Type: string | undefined
+const maybeValue = seasonCounts.get("I Love Lucy");
+
+console.log(maybeValue.toUpperCase());
+//          ~~~~~~~~~~
+// Error: Object is possibly 'undefined'.
+
+// Type: string
+const knownValue = seasonCounts.get("I Love Lucy")!;
+console.log(knownValue.toUpperCase()); // Ok
+```
+## Const Assertions
+### Literal to Primitive
+```ts
+// Type: (number | string)[]
+[0, ''];
+
+// Type: readonly [0, '']
+[0, ''] as const;
+
+
+
+// Type: () => string
+const getName = () => "Maria Bamford";
+
+// Type: () => "Maria Bamford"
+const getNameConst = () => "Maria Bamford" as const;
+
+```
+```ts
+
+
+interface Joke {
+    quote: string;
+    style: "story" | "one-liner";
+    
+}
+
+function tellJoke(joke: Joke) {
+    if (joke.style === "one-liner") {
+        console.log(joke.quote);
+    } else {
+        console.log(joke.quote.split("\n"));
+    }
+}
+
+// Type: { quote: string; style: "one-liner" }
+const narrowJoke = {
+    quote: "If you stay alive for no other reason do it for spite.",
+    style: "one-liner" as const,
+};
+
+tellJoke(narrowJoke); // Ok
+
+// Type: { quote: string; style: string }
+const wideObject = {
+    quote: "Time flies when you are anxious!",
+    style: "one-liner",
+};
+
+tellJoke(wideObject);
+// Error: Argument of type '{ quote: string; style: string; }'
+// is not assignable to parameter of type 'LogAction'.
+//   Types of property 'style' are incompatible.
+//     Type 'string' is not assignable to type '"story" | "one-liner"'.
+```
+### Read-Only Objects
+```ts
+function describePreference(preference: "maybe" | "no" | "yes") {
+    switch (preference) {
+        case "maybe":
+            return "I suppose...";
+        case "no":
+            return "No thanks.";
+        case "yes":
+            return "Yes please!";
+    }
+}
+
+// Type: { movie: string, standup: string }
+const preferencesMutable = {
+    movie: "maybe"
+    standup: "yes",
+};
+
+describePreference(preferencesMutable.movie);
+//                 ~~~~~~~~~~~~~~~~~~~~~~~~
+// Error: Argument of type 'string' is not assignable
+// to parameter of type '"maybe" | "no" | "yes"'.
+
+preferencesMutable.movie = "no"; // Ok
+
+// Type: readonly { readonly movie: "maybe", readonly standup: "yes" }
+const preferencesReadonly = {
+    movie: "maybe"
+    standup: "yes",
+} as const;
+
+
+describePreference(preferencesReadonly.movie); // Ok
+
+preferencesReadonly.movie = "no";
+//                  ~~~~~
+// Error: Cannot assign to 'movie' because it is a read-only property.
+```

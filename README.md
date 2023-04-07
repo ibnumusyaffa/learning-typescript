@@ -112,6 +112,8 @@
     - [Changing Modifiers](#changing-modifiers)
     - [Generic Mapped Types](#generic-mapped-types)
   - [Conditional Types](#conditional-types)
+  - [Template Literal Types](#template-literal-types)
+    - [Template Literal Keys](#template-literal-keys)
 
 # The Type System
 
@@ -2009,3 +2011,55 @@ type ReadonlySpecies = MakeReadonly<Species>;
 // }
 ```
 ## Conditional Types
+Soons
+## Template Literal Types
+```ts
+type Greeting = `Hello${string}`;
+
+let matches: Greeting = "Hello, world!"; // Ok
+
+let outOfOrder: Greeting = "World! Hello!";
+//  ~~~~~~~~~~
+// Error: Type '"World! Hello!"' is not assignable to type '`Hello ${string}`'.
+
+let missingAltogether: Greeting = "hi";
+//  ~~~~~~~~~~~~~~~~~
+// Error: Type '"hi"' is not assignable to type '`Hello ${string}`'.
+```
+```ts
+type Brightness = "dark" | "light";
+type Color =  "blue" | "red";
+
+type BrightnessAndColor = `${Brightness}-${Color}`;
+// Equivalent to: "dark-red" | "light-red" | "dark-blue" | "light-blue"
+
+let colorOk: BrightnessAndColor = "dark-blue"; // Ok
+
+let colorWrongStart: BrightnessAndColor = "medium-blue";
+//  ~~~~~~~~~~~~~~~
+// Error: Type '"medium-blue"' is not assignable to type
+// '"dark-blue" | "dark-red" | "light-blue" | "light-red"'.
+```
+### Template Literal Keys
+```ts
+type DataKey = "location" | "name" | "year";
+
+type ExistenceChecks = {
+    [K in `check${Capitalize<DataKey>}`]: () => boolean;
+};
+// Equivalent to:
+// {
+//   checkLocation: () => boolean;
+//   checkName: () => boolean;
+//   checkYear: () => boolean;
+// }
+
+function checkExistence(checks: ExistenceChecks) {
+    checks.checkLocation(); // Type: boolean
+    checks.checkName(); // Type: boolean
+
+    checks.checkWrong();
+    //     ~~~~~~~~~~
+    // Error: Property 'checkWrong' does not exist on type 'ExistenceChecks'.
+}
+```

@@ -87,6 +87,31 @@
   - [Const Assertions](#const-assertions)
     - [Literal to Primitive](#literal-to-primitive)
     - [Read-Only Objects](#read-only-objects)
+- [Generic](#generic)
+  - [Generic Functions](#generic-functions)
+    - [Explicit Generic Call Types](#explicit-generic-call-types)
+    - [Multiple Function Type Parameters](#multiple-function-type-parameters)
+  - [Generic Interfaces](#generic-interfaces)
+    - [Inferred Generic Interface Types](#inferred-generic-interface-types)
+  - [Generic Classes](#generic-classes)
+    - [Extending Generic Classes](#extending-generic-classes)
+    - [Implementing Generic Interfaces](#implementing-generic-interfaces)
+    - [Method Generics](#method-generics)
+    - [Static Class Generics](#static-class-generics)
+  - [Generic Type Aliases](#generic-type-aliases)
+    - [Generic Discriminated Unions](#generic-discriminated-unions)
+  - [Generic Modifiers](#generic-modifiers)
+    - [Generic Defaults](#generic-defaults)
+  - [Constrained Generic Types](#constrained-generic-types)
+  - [Promises](#promises)
+    - [Creating Promises](#creating-promises)
+    - [Async Functions](#async-functions)
+- [Type Operations](#type-operations)
+  - [Mapped Types](#mapped-types)
+    - [Mapped Types from Types](#mapped-types-from-types)
+    - [Changing Modifiers](#changing-modifiers)
+    - [Generic Mapped Types](#generic-mapped-types)
+  - [Conditional Types](#conditional-types)
 
 # The Type System
 
@@ -1518,3 +1543,469 @@ preferencesReadonly.movie = "no";
 //                  ~~~~~
 // Error: Cannot assign to 'movie' because it is a read-only property.
 ```
+# Generic
+## Generic Functions
+```ts
+function identity<T>(input: T) {
+    return input;
+}
+
+const numeric = identity("me"); // Type: "me"
+const stringy = identity(123); // Type: 123
+```
+### Explicit Generic Call Types
+```ts
+function logWrapper<T>(callback: (input: T) => void) {
+    return (input: T) => {
+        console.log("Input:", input);
+        callback(input);
+    };
+}
+
+// Type: (input: string) => void
+logWrapper((input: string) => {
+    console.log(input.length);
+});
+
+// Type: (input: unknown) => void
+logWrapper((input) => {
+    console.log(input.length);
+    //                ~~~~~~
+    // Error: Property 'length' does not exist on type 'unknown'.
+});
+
+// Type: (input: string) => void
+logWrapper<string>((input) => {
+    console.log(input.length);
+});
+```
+### Multiple Function Type Parameters
+```ts
+function makePair<Key, Value>(key: Key, value: Value) {
+    return { key, value };
+}
+makePair("abc", 123); // Type: { key: string; value: number }
+```
+## Generic Interfaces
+```ts
+interface Box<T> {
+    inside: T;
+}
+
+
+let stringyBox: Box<string> = {
+    inside: "abc",
+};
+```
+### Inferred Generic Interface Types
+```ts
+interface LinkedNode<Value> {
+    next?: LinkedNode<Value>;
+    value: Value;
+}
+
+function getLast<Value>(node: LinkedNode<Value>): Value {
+    return node.next ? getLast(node.next) : node.value;
+}
+
+// Inferred Value type argument: Date
+let lastDate = getLast({
+    value: new Date("09-13-1993"),
+});
+
+// Inferred Value type argument: string
+let lastFruit = getLast({
+    next: {
+        value: "banana",
+    },
+    value: "apple",
+});
+```
+## Generic Classes
+```ts
+class Secret<Key, Value> {
+    key: Key;
+    value: Value;
+
+    constructor(key: Key, value: Value) {
+        this.key = key;
+        this.value = value;
+    }
+
+    getValue(key: Key): Value | undefined {
+        return this.key === key
+            ? this.value
+            : undefined;
+    }
+}
+
+const storage = new Secret(12345, "luggage"); // Type: Secret<number, string>
+
+storage.getValue(1987); // Type: string | undefined
+```
+### Extending Generic Classes
+```ts
+
+
+class Quote<T> {
+    lines: T;
+
+    constructor(lines: T) {
+        this.lines = lines;
+    }
+}
+
+class SpokenQuote extends Quote<string[]> {
+    speak() {
+        console.log(this.lines.join("\n"));
+    }
+}
+
+new Quote("The only real failure is the failure to try.").lines; // Type: string
+new Quote([4, 8, 15, 16, 23, 42]).lines; // Type: number[]
+
+new SpokenQuote([
+    "Greed is so destructive.",
+    "It destroys everything",
+]).lines; // Type: string[]
+
+new SpokenQuote([4, 8, 15, 16, 23, 42]);
+//              ~~~~~~~~~~~~~~~~~~~~~~
+// Error: Argument of type 'number' is not
+// assignable to parameter of type 'string'.
+```
+### Implementing Generic Interfaces
+```ts
+interface ActingCredit<Role> {
+    role: Role;
+}
+
+class MoviePart implements ActingCredit<string> {
+    role: string;
+    speaking: boolean;
+
+    constructor(role: string, speaking: boolean) {
+        this.role = role;
+        this.speaking = speaking;
+    }
+}
+
+const part = new MoviePart("Miranda Priestly", true);
+
+part.role; // Type: string
+
+class IncorrectExtension implements ActingCredit<string> {
+    role: boolean;
+    //    ~~~~~~~
+    // Error: Property 'role' in type 'IncorrectExtension' is not
+    // assignable to the same property in base type 'ActingCredit<string>'.
+    //   Type 'boolean' is not assignable to type 'string'.
+}
+```
+### Method Generics
+```ts
+class CreatePairFactory<Key> {
+    key: Key;
+
+    constructor(key: Key) {
+        this.key = key;
+    }
+
+    createPair<Value>(value: Value) {
+        return { key: this.key, value };
+    }
+}
+
+// Type: CreatePairFactory<string>
+const factory = new CreatePairFactory("role");
+
+// Type: { key: string, value: number }
+const numberPair = factory.createPair(10);
+
+// Type: { key: string, value: string }
+const stringPair = factory.createPair("Sophie");
+```
+### Static Class Generics
+```ts
+class BothLogger<OnInstance> {
+    instanceLog(value: OnInstance) {
+        console.log(value);
+        return value;
+    }
+
+    static staticLog<OnStatic>(value: OnStatic) {
+        let fromInstance: OnInstance;
+        //                ~~~~~~~~~~
+        // Error: Static members cannot reference class type arguments.
+
+        console.log(value);
+        return value;
+    }
+}
+
+const logger = new BothLogger<number[]>;
+logger.instanceLog([1, 2, 3]); // Type: number[]
+
+// Inferred OnStatic type argument: boolean[]
+BothLogger.staticLog([false, true]);
+
+// Explicit OnStatic type argument: string
+BothLogger.staticLog<string>("You can't change the music of your soul.");
+```
+## Generic Type Aliases
+```ts
+type Nullish<T> = T | null | undefined;
+
+
+type CreatesValue<Input, Output> = (input: Input) => Output;
+
+// Type: (input: string) => number
+let creator: CreatesValue<string, number>;
+
+creator = text => text.length; // Ok
+
+creator = text => text.toUpperCase();
+//                ~~~~~~~~~~~~~~~~~~
+// Error: Type 'string' is not assignable to type 'number'.
+```
+### Generic Discriminated Unions
+```ts
+type Result<Data> = FailureResult | SuccessfulResult<Data>;
+
+interface FailureResult {
+    error: Error;
+    succeeded: false;
+}
+
+interface SuccessfulResult<Data> {
+    data: Data;
+    succeeded: true;
+}
+
+
+function handleResult(result: Result<string>) {
+    if (result.succeeded) {
+        // Type of result: SuccessfulResult<string>
+        console.log(`We did it! ${result.data}`);
+    } else {
+        // Type of result: FailureResult
+        console.error(`Awww... ${result.error}`);
+    }
+
+    result.data;
+    //     ~~~~
+    // Error: Property 'data' does not exist on type 'Result<string>'.
+    //   Property 'data' does not exist on type 'FailureResult'.
+}
+```
+## Generic Modifiers
+### Generic Defaults
+```ts
+interface Quote<T = string> {
+    value: T;
+}
+
+let explicit: Quote<number> = { value: 123 };
+
+let implicit: Quote = { value: "Be yourself. The world worships the original." };
+
+let mismatch: Quote = { value: 123 };
+//                                     ~~~
+// Error: Type 'number' is not assignable to type 'string'.
+```
+
+## Constrained Generic Types
+```ts
+interface WithLength {
+    length: number;
+}
+
+function logWithLength<T extends WithLength>(input: T) {
+    console.log(`Length: ${input.length}`);
+    return input;
+}
+
+logWithLength("No one can figure out your worth but you."); // Type: string
+logWithLength([false, true]); // Type: boolean[]
+logWithLength({ length: 123 }); // Type: { length: number }
+
+logWithLength(new Date());
+//            ~~~~~~~~~~
+// Error: Argument of type 'Date' is not
+// assignable to parameter of type 'WithLength'.
+//   Property 'length' is missing in type
+```
+```ts
+function get<T, Key extends keyof T>(container: T, key: Key) {
+    return container[key];
+}
+
+const roles = {
+    favorite: "Fargo",
+    others: ["Almost Famous", "Burn After Reading", "Nomadland"],
+};
+
+const favorite = get(roles, "favorite"); // Type: string
+const others = get(roles, "others"); // Type: string[]
+
+const missing = get(roles, "extras");
+```
+```ts
+function get<T>(container: T, key: keyof T) {
+    return container[key];
+}
+
+const roles = {
+    favorite: "Fargo",
+    others: ["Almost Famous", "Burn After Reading", "Nomadland"],
+};
+const found = get(roles, "favorite"); // Type: string | string[]
+```
+## Promises
+### Creating Promises
+```ts
+// Type: Promise<unknown>
+const resolvesUnknown = new Promise((resolve) => {
+    setTimeout(() => resolve("Done!"), 1000);
+});
+
+// Type: Promise<string>
+const resolvesString = new Promise<string>((resolve) => {
+    setTimeout(() => resolve("Done!"), 1000);
+});
+```
+### Async Functions
+```ts
+// Type: (text: string) => Promise<number>
+async function lengthImmediately(text: string) {
+    return text.length;
+}
+
+// Ok
+async function givesPromiseForString(): Promise<string> {
+    return "Done!";
+}
+
+async function givesString(): string {
+    //                        ~~~~~~
+    // Error: The return type of an async function
+    // or method must be the global Promise<T> type.
+    return "Done!";
+}
+```
+#  Type Operations
+## Mapped Types
+```ts
+type Animals = "alligator" | "baboon" | "cat";
+
+type AnimalCounts = {
+    [K in Animals]: number;
+};
+// Equivalent to:
+// {
+//   alligator: number;
+//   baboon: number;
+//   cat: number;
+// }
+```
+### Mapped Types from Types
+```ts
+interface AnimalVariants {
+    alligator: boolean;
+    baboon: number;
+    cat: string;
+}
+
+type AnimalCounts = {
+    [K in keyof AnimalVariants]: number;
+};
+// Equivalent to:
+// {
+//   alligator: number;
+//   baboon: number;
+//   cat: number;
+// }
+```
+```ts
+interface BirdVariants {
+    dove: string;
+    eagle: boolean;
+}
+
+type NullableBirdVariants = {
+    [K in keyof BirdVariants]: BirdVariants[K] | null,
+};
+// Equivalent to:
+// {
+//   dove: string | null;
+//   eagle: boolean | null;
+// }
+```
+### Changing Modifiers
+```ts
+interface Environmentalist {
+    area: string;
+    name: string;
+}
+
+type ReadonlyEnvironmentalist = {
+    readonly [K in keyof Environmentalist]: Environmentalist[K];
+};
+// Equivalent to:
+// {
+//   readonly area: string;
+//   readonly name: string;
+// }
+```
+```ts
+interface Conservationist {
+    name: string;
+    catchphrase?: string;
+    readonly born: number;
+    readonly died?: number;
+}
+
+type WritableConservationist = {
+    -readonly [K in keyof Conservationist]: Conservationist[K];
+};
+
+// Equivalent to:
+// {
+//   name: string;
+//   catchphrase?: string;
+//   born: number;
+//   died?: number;
+// }
+
+
+
+type RequiredWritableConservationist = {
+    [K in keyof WritableConservationist]-?: WritableConservationist[K];
+};
+// Equivalent to:
+// {
+//   name: string;
+//   catchphrase: string;
+//   born: number;
+//   died: number;
+// }
+```
+### Generic Mapped Types
+```ts
+type MakeReadonly<T> = {
+    readonly [K in keyof T]: T[K];
+}
+
+interface Species {
+    genus: string;
+    name: string;
+}
+
+type ReadonlySpecies = MakeReadonly<Species>;
+// Equivalent to:
+// {
+//   readonly genus: string;
+//   readonly name: string;
+// }
+```
+## Conditional Types
